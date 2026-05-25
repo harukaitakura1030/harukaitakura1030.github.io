@@ -21,6 +21,9 @@
   import Navbar from "./Navbar.svelte";
   import TalkColumn from "./TalkColumn.svelte";
 
+  import { realtimeSocketState } from "$lib/utils/realtime-socket";
+  import type { Packet as RealtimePacket } from "$lib/types/realtime";
+
   let settings = $state<AgentSettings | undefined>(undefined);
   let status = $state("");
   let deadline = $state<number | null>(null);
@@ -39,6 +42,10 @@
   let attackedAgents = $state<string[]>([]);
   let remain = $state<number | null>(null);
   let animationFrameId = $state<number | null>(null);
+
+  let realtimeTalkHistory = $state<Talk[]>([]);
+  let mergedTalkHistory = $state<Talk[]>([]);
+  let unsubscribeRealtimeSocketState: (() => void) | null = null;
 
   let unsubscribeSettings = agentSettings.subscribe((value) => {
     settings = value;
@@ -70,6 +77,7 @@
     setting = socketState.setting;
     talkHistory = socketState.talkHistory;
     whisperHistory = socketState.whisperHistory;
+    mergedTalkHistory = mergeTalks(talkHistory, realtimeTalkHistory);
     executedAgents = socketState.executedAgents;
     attackedAgents = socketState.attackedAgents;
   });
@@ -122,8 +130,109 @@
     agentSocketState.send(message);
   }
 
+  function getSpeakerIdxFromRealtimePacket(packet: RealtimePacket): number | null {
+    if (packet.from_idx !== undefined) {
+      return packet.from_idx;
+    }
+
+    if (packet.bubble_idx !== undefined) {
+      return packet.bubble_idx;
+    }
+
+    return null;
+  }
+
+  function getAgentNameFromRealtimePacket(packet: RealtimePacket): string | null {
+    const speakerIdx = getSpeakerIdxFromRealtimePacket(packet);
+
+    if (speakerIdx === null) {
+      return null;
+    }
+
+    return `Agent[${String(speakerIdx).padStart(2, "0")}]`;
+  }
+
+  function realtimePacketToTalk(packet: RealtimePacket): Talk | null {
+    if (packet.event !== "トーク") {
+      return null;
+    }
+
+    if (!packet.message) {
+      return null;
+    }
+
+    const agentName = getAgentNameFromRealtimePacket(packet);
+
+    if (!agentName) {
+      return null;
+    }
+
+    return {
+      idx: packet.idx,
+      day: packet.day,
+      turn: packet.idx,
+      agent: agentName,
+      text: packet.message,
+      skip: packet.message === "Skip" || packet.message === "SKIP",
+      over: packet.message === "Over" || packet.message === "OVER",
+    };
+  }
+
+
+  function getTalkKey(talk: Talk): string {
+  return `${talk.day}:${talk.idx}:${talk.turn}:${talk.agent}:${talk.text}`;
+}
+
+  function mergeTalks(...lists: Talk[][]): Talk[] {
+    const seen = new Set<string>();
+    const result: Talk[] = [];
+
+    for (const list of lists) {
+      for (const talk of list) {
+        const key = getTalkKey(talk);
+
+        if (seen.has(key)) {
+          continue;
+        }
+
+        seen.add(key);
+        result.push(talk);
+      }
+    }
+
+    return result.sort((a, b) => {
+      if (a.day !== b.day) return a.day - b.day;
+      if (a.idx !== b.idx) return a.idx - b.idx;
+      return a.turn - b.turn;
+    });
+  }
+
+
+
   if (browser) {
     connectWithParams();
+
+    realtimeSocketState.connect();
+
+    unsubscribeRealtimeSocketState = realtimeSocketState.subscribe((realtimeState) => {
+      if (!info?.game_id) {
+        return;
+      }
+
+      const packets = realtimeState.entries[info.game_id];
+
+      if (!packets) {
+        realtimeTalkHistory = [];
+        mergedTalkHistory = mergeTalks(talkHistory, realtimeTalkHistory);
+        return;
+      }
+
+      realtimeTalkHistory = packets
+        .map(realtimePacketToTalk)
+        .filter((talk): talk is Talk => talk !== null);
+
+      mergedTalkHistory = mergeTalks(talkHistory, realtimeTalkHistory);
+    });
 
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (status === "connected") {
@@ -141,6 +250,10 @@
     window.addEventListener("popstate", handlePopState);
 
     onDestroy(() => {
+
+      unsubscribeRealtimeSocketState?.();
+      realtimeSocketState.disconnect();
+
       window.removeEventListener("beforeunload", handleBeforeUnload);
       window.removeEventListener("popstate", handlePopState);
 
@@ -171,7 +284,7 @@
       />
       <TalkColumn
         header={$_("agent.talkHistory")}
-        talks={talkHistory}
+        talks={mergedTalkHistory}
         agents={Object.keys(info?.status_map ?? {})}
       />
       {#if role === Role.WEREWOLF}
