@@ -1,5 +1,8 @@
 <script lang="ts">
-  import { hierarchicalDisplaySettings } from "$lib/stores/hierarchicalDisplaySettings";
+  import {
+    hierarchicalDisplaySettings,
+    isFieldHidden,
+  } from "$lib/stores/hierarchicalDisplaySettings";
   import type { DayStatus } from "$lib/types/archive";
   import { getColorFromName } from "$lib/utils/archive";
   import { _, locale } from "svelte-i18n";
@@ -25,6 +28,27 @@
 
   function getTeamTranslation(team: string) {
     return $_("game.teams." + team);
+  }
+
+  // アーカイブ末尾のUnix標準時間形式タイムスタンプをミリ秒に変換する
+  function archiveUnixTokenToMs(raw: string): number | null {
+    if (!/^\d{10,13}$/.test(raw)) return null;
+    const n = Number(raw);
+    if (!Number.isFinite(n)) return null;
+    return raw.length >= 13 ? n : n * 1000;
+  }
+
+  // アーカイブ末尾のUnix標準時間形式タイムスタンプをHH:MM:SS形式の文字列に変換する
+  function formatArchiveLineTimestamp(raw: string): string {
+    const ms = archiveUnixTokenToMs(raw);
+    if (ms === null) return raw;
+    const localeTag = isEnglish ? "en-US" : "ja-JP";
+    return new Date(ms).toLocaleString(localeTag, {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false,
+    });
   }
 </script>
 
@@ -77,7 +101,7 @@
                 {#if settings.agents.fields?.gameName}
                   <AgentName text={status.gameName} key={status.gameName} />
                 {/if}
-                {#if settings.agents.fields?.originalName}
+                {#if settings.agents.fields?.originalName && !isFieldHidden("agents", "originalName")}
                   {status.originalName}
                 {/if}
                 {#if settings.agents.fields?.role}
@@ -110,12 +134,18 @@
                 {#if settings.beforeWhisper.fields?.turnIdx}
                   <span class="text-xs opacity-50">T{whisper.turnIdx}</span>
                 {/if}
+                {#if settings.beforeWhisper.fields?.timestamp && whisper.timestamp}
+                  <span
+                    class="text-xs opacity-50 tabular-nums whitespace-nowrap ml-1"
+                    >{formatArchiveLineTimestamp(whisper.timestamp)}</span
+                  >
+                {/if}
                 {#if settings.beforeWhisper.fields?.agentName}
                   <AgentName
                     text={dayStatus.agents[whisper.agentIdx].gameName}
                   />
                 {/if}
-                {#if settings.beforeWhisper.fields?.originalName && dayStatus.agents[whisper.agentIdx].originalName}
+                {#if settings.beforeWhisper.fields?.originalName && !isFieldHidden("beforeWhisper", "originalName") && dayStatus.agents[whisper.agentIdx].originalName}
                   <span class="text-sm opacity-75"
                     >({dayStatus.agents[whisper.agentIdx].originalName})</span
                   >
@@ -149,10 +179,16 @@
                 {#if settings.talks.fields?.turnIdx}
                   <span class="text-xs opacity-50">T{talk.turnIdx}</span>
                 {/if}
+                {#if settings.talks.fields?.timestamp && talk.timestamp}
+                  <span
+                    class="text-xs opacity-50 tabular-nums whitespace-nowrap ml-1"
+                    >{formatArchiveLineTimestamp(talk.timestamp)}</span
+                  >
+                {/if}
                 {#if settings.talks.fields?.agentName}
                   <AgentName text={dayStatus.agents[talk.agentIdx].gameName} />
                 {/if}
-                {#if settings.talks.fields?.originalName && dayStatus.agents[talk.agentIdx].originalName}
+                {#if settings.talks.fields?.originalName && !isFieldHidden("talks", "originalName") && dayStatus.agents[talk.agentIdx].originalName}
                   <span class="text-sm opacity-75"
                     >({dayStatus.agents[talk.agentIdx].originalName})</span
                   >
@@ -288,12 +324,18 @@
                 {#if settings.afterWhisper.fields?.turnIdx}
                   <span class="text-xs opacity-50">T{whisper.turnIdx}</span>
                 {/if}
+                {#if settings.afterWhisper.fields?.timestamp && whisper.timestamp}
+                  <span
+                    class="text-xs opacity-50 tabular-nums whitespace-nowrap ml-1"
+                    >{formatArchiveLineTimestamp(whisper.timestamp)}</span
+                  >
+                {/if}
                 {#if settings.afterWhisper.fields?.agentName}
                   <AgentName
                     text={dayStatus.agents[whisper.agentIdx].gameName}
                   />
                 {/if}
-                {#if settings.afterWhisper.fields?.originalName && dayStatus.agents[whisper.agentIdx].originalName}
+                {#if settings.afterWhisper.fields?.originalName && !isFieldHidden("afterWhisper", "originalName") && dayStatus.agents[whisper.agentIdx].originalName}
                   <span class="text-sm opacity-75"
                     >({dayStatus.agents[whisper.agentIdx].originalName})</span
                   >
