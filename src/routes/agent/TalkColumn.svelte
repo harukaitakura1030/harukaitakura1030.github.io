@@ -5,17 +5,9 @@
   import { onDestroy, onMount } from "svelte";
   import ChatBubble from "./ChatBubble.svelte";
 
-  let {
-    header,
-    talks,
-    agents,
-  }: { header: string; talks: Talk[]; agents: string[] } = $props();
+  let { header, talks, agents }: { header: string; talks: Talk[]; agents: string[] } = $props();
 
   let settings = $state<AgentSettings>();
-
-  let isDefaultProfile = agents.every((agent) =>
-    Object.keys(DefaultProfileAvatars).includes(agent),
-  );
 
   onMount(() => {
     const unsubscribe = agentSettings.subscribe((value) => {
@@ -46,7 +38,7 @@
               />
               <div class="tab-content my-4">
                 {#each talks.filter((t) => t.day === day) as talk}
-                  <ChatBubble {talk} {agents} {isDefaultProfile}></ChatBubble>
+                  <ChatBubble {talk} {agents}></ChatBubble>
                 {/each}
               </div>
             {/each}
@@ -71,7 +63,7 @@
               />
               <div class="tab-content my-4">
                 {#each talks.filter((t) => t.day === day) as talk}
-                  <ChatBubble {talk} {agents} {isDefaultProfile}></ChatBubble>
+                  <ChatBubble {talk} {agents}></ChatBubble>
                 {/each}
               </div>
             {/each}

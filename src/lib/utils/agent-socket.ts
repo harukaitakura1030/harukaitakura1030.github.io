@@ -166,11 +166,11 @@ function createAgentSocketState() {
         }
 
         if (packet.talk_history) {
-            newState.talkHistory.push(...packet.talk_history);
+            newState.talkHistory = appendTalks(newState.talkHistory, packet.talk_history);
         }
 
         if (packet.whisper_history) {
-            newState.whisperHistory.push(...packet.whisper_history);
+            newState.whisperHistory = appendTalks(newState.whisperHistory, packet.whisper_history);
         }
 
         if (packet.request === Request.INITIALIZE && newState.info) {
@@ -207,13 +207,50 @@ function createAgentSocketState() {
         }
     }
 
+    function appendRealtimeTalks(talks: Talk[]) {
+        update(state => ({
+            ...state,
+            talkHistory: appendTalks(state.talkHistory, talks),
+        }));
+    }
+
     return {
         subscribe,
         connect,
         disconnect,
         send,
+        appendRealtimeTalks,
     };
 }
+
+function getTalkKey(talk: Talk): string {
+    // Normalize key: ignore idx/turn and normalize whitespace to prevent duplicates
+    const normalizedText = (talk.text ?? "").replace(/\s+/g, " ").trim();
+    return `${talk.day}:${talk.agent}:${normalizedText}`;
+}
+
+function appendTalks(current: Talk[], talks: Talk[] | undefined): Talk[] {
+    if (!talks || talks.length === 0) {
+        return current;
+    }
+
+    const seen = new Set(current.map(getTalkKey));
+    const next = [...current];
+
+    for (const talk of talks) {
+        const key = getTalkKey(talk);
+
+        if (seen.has(key)) {
+            continue;
+        }
+
+        seen.add(key);
+        next.push(talk);
+    }
+
+    return next;
+}
+
 
 export const agentSocketState = createAgentSocketState();
 

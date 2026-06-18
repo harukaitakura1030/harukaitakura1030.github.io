@@ -43,8 +43,7 @@
   let remain = $state<number | null>(null);
   let animationFrameId = $state<number | null>(null);
 
-  let realtimeTalkHistory = $state<Talk[]>([]);
-  let mergedTalkHistory = $state<Talk[]>([]);
+
   let unsubscribeRealtimeSocketState: (() => void) | null = null;
 
   let unsubscribeSettings = agentSettings.subscribe((value) => {
@@ -77,7 +76,6 @@
     setting = socketState.setting;
     talkHistory = socketState.talkHistory;
     whisperHistory = socketState.whisperHistory;
-    mergedTalkHistory = mergeTalks(talkHistory, realtimeTalkHistory);
     executedAgents = socketState.executedAgents;
     attackedAgents = socketState.attackedAgents;
   });
@@ -149,6 +147,12 @@
       return null;
     }
 
+    // If packet contains agents array, prefer the actual agent name
+    if (packet.agents && Array.isArray(packet.agents)) {
+      const agentEntry = packet.agents.find((a) => a.idx === speakerIdx);
+      if (agentEntry && agentEntry.name) return agentEntry.name;
+    }
+
     return `Agent[${String(speakerIdx).padStart(2, "0")}]`;
   }
 
@@ -178,35 +182,12 @@
     };
   }
 
-
+  const appendedRealtimeTalkKeys = new Set<string>();
   function getTalkKey(talk: Talk): string {
-  return `${talk.day}:${talk.idx}:${talk.turn}:${talk.agent}:${talk.text}`;
-}
-
-  function mergeTalks(...lists: Talk[][]): Talk[] {
-    const seen = new Set<string>();
-    const result: Talk[] = [];
-
-    for (const list of lists) {
-      for (const talk of list) {
-        const key = getTalkKey(talk);
-
-        if (seen.has(key)) {
-          continue;
-        }
-
-        seen.add(key);
-        result.push(talk);
-      }
-    }
-
-    return result.sort((a, b) => {
-      if (a.day !== b.day) return a.day - b.day;
-      if (a.idx !== b.idx) return a.idx - b.idx;
-      return a.turn - b.turn;
-    });
+    // Normalize key to avoid duplicates across sources by ignoring idx/turn
+    const normalizedText = (talk.text ?? "").replace(/\s+/g, " ").trim();
+    return `${talk.day}:${talk.agent}:${normalizedText}`;
   }
-
 
 
   if (browser) {
@@ -214,25 +195,35 @@
 
     realtimeSocketState.connect();
 
-    unsubscribeRealtimeSocketState = realtimeSocketState.subscribe((realtimeState) => {
-      if (!info?.game_id) {
-        return;
-      }
+  unsubscribeRealtimeSocketState = realtimeSocketState.subscribe((realtimeState) => {
+    if (!info?.game_id) {
+      return;
+    }
 
-      const packets = realtimeState.entries[info.game_id];
+    const packets = realtimeState.entries[info.game_id];
 
-      if (!packets) {
-        realtimeTalkHistory = [];
-        mergedTalkHistory = mergeTalks(talkHistory, realtimeTalkHistory);
-        return;
-      }
+    if (!packets) {
+      return;
+    }
 
-      realtimeTalkHistory = packets
-        .map(realtimePacketToTalk)
-        .filter((talk): talk is Talk => talk !== null);
+    const newTalks = packets
+      .map(realtimePacketToTalk)
+      .filter((talk): talk is Talk => talk !== null)
+      .filter((talk) => {
+        const key = getTalkKey(talk);
 
-      mergedTalkHistory = mergeTalks(talkHistory, realtimeTalkHistory);
-    });
+        if (appendedRealtimeTalkKeys.has(key)) {
+          return false;
+        }
+
+        appendedRealtimeTalkKeys.add(key);
+        return true;
+      });
+
+    if (newTalks.length > 0) {
+      agentSocketState.appendRealtimeTalks(newTalks);
+    }
+  });
 
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (status === "connected") {
@@ -284,7 +275,7 @@
       />
       <TalkColumn
         header={$_("agent.talkHistory")}
-        talks={mergedTalkHistory}
+        talks={talkHistory}
         agents={Object.keys(info?.status_map ?? {})}
       />
       {#if role === Role.WEREWOLF}
