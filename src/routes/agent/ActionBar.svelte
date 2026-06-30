@@ -95,10 +95,19 @@
     input?.focus();
   }
 
+  function handleSubmit(event?: Event) {
+    event?.preventDefault();
+
+    if (!message.trim()) {
+      return;
+    }
+
+    onSendMessage(message);
+  }
+
   function onKeydown(event: KeyboardEvent) {
-    if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
-      event.preventDefault();
-      onSendMessage(message);
+    if (event.key === "Enter") {
+      handleSubmit(event);
     }
   }
 
@@ -107,7 +116,11 @@
   }
 </script>
 
-<form class="flex-none bg-base-200" data-sveltekit-keepfocus>
+<form
+  class="flex-none bg-base-200"
+  data-sveltekit-keepfocus
+  onsubmit={handleSubmit}
+>
   {#if settings?.display.largeScale}
     <div class="flex gap-2 items-center px-4 pt-4 pb-4 overflow-x-auto">
       <span class="countdown font-mono text-3xl">
@@ -195,8 +208,9 @@
           )}</pre>
       {/if}
       <button
+        type="button"
         class="btn btn-xl"
-        onclick={() => onSendMessage(message)}
+        onclick={() => handleSubmit()}
         aria-label="Send"
       >
         <iconify-icon icon="mdi:send"></iconify-icon>
@@ -297,8 +311,9 @@
           )}</pre>
       {/if}
       <button
+        type="button"
         class="btn"
-        onclick={() => onSendMessage(message)}
+        onclick={() => handleSubmit()}
         aria-label="Send"
       >
         <iconify-icon icon="mdi:send"></iconify-icon>
