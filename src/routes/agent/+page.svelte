@@ -286,7 +286,7 @@
         />
       {/if}
     </div>
-    {#if remain !== null}
+    {#if remain !== null && request !== null && [Request.TALK, Request.TALK_BROADCAST, Request.WHISPER, Request.VOTE, Request.DIVINE, Request.GUARD, Request.ATTACK].includes(request as Request)}
       <ActionBar
         {remain}
         {setting}

@@ -238,6 +238,7 @@
     "request": {
       "NAME": "名前",
       "TALK": "トーク",
+      "TALK_BROADCAST": "全体発話",
       "WHISPER": "囁き",
       "VOTE": "投票",
       "DIVINE": "占い",

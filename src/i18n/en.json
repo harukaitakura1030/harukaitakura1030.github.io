@@ -238,6 +238,7 @@
     "request": {
       "NAME": "Name",
       "TALK": "Talk",
+      "TALK_BROADCAST": "Broadcast Talk",
       "WHISPER": "Whisper",
       "VOTE": "Vote",
       "DIVINE": "Divine",

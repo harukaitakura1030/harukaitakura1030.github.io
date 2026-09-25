@@ -49,44 +49,61 @@ function createAgentSocketState() {
     let settings: AgentSettings | null = null;
     let actionTimeout: number | null = null;
     let actionTimer: Timer | null = null;
+    let preserveStateOnClose = false;
 
     const unsubscribe = agentSettings.subscribe((value) => {
         settings = value;
     });
 
-    function disconnect() {
+    function disconnect(options: { preserveState?: boolean } = {}) {
         if (socket) {
+            socket.onclose = null;
+            socket.onerror = null;
             socket.close();
             socket = null;
-            update(state => ({ ...state, status: "disconnected" }));
         }
+
         if (actionTimer) {
             actionTimer.clear();
             actionTimer = null;
         }
+
+        actionTimeout = null;
+        update(state => {
+            if (options.preserveState) {
+                return {
+                    ...state,
+                    status: "disconnected",
+                    deadline: null,
+                };
+            }
+
+            return { ...createInitialState(), status: "disconnected" };
+        });
     }
 
     function connect() {
         if (!settings) return;
 
         if (socket) {
-            update(() => createInitialState());
+            disconnect();
         }
 
-        update(state => ({ ...state, status: "connecting" }));
+        update(() => ({ ...createInitialState(), status: "connecting" }));
         const socketUrl = new URL(settings.connection.url);
         if (settings.connection.token) {
             socketUrl.searchParams.set('token', settings.connection.token);
         }
 
-        socket = new WebSocket(socketUrl);
+        socket = new WebSocket(socketUrl.toString());
 
         socket.onopen = () => {
             update(state => ({ ...state, status: "connected" }));
         };
 
         socket.onclose = () => {
-            disconnect();
+            disconnect({ preserveState: preserveStateOnClose });
+            preserveStateOnClose = false;
         };
 
         socket.onerror = () => {
@@ -188,6 +205,7 @@ function createAgentSocketState() {
                 send(settings?.team || 'viewer' + Math.floor(Math.random() * 1000));
                 break;
             case Request.TALK:
+            case Request.TALK_BROADCAST:
             case Request.WHISPER:
             case Request.VOTE:
             case Request.DIVINE:
@@ -202,7 +220,8 @@ function createAgentSocketState() {
                 update(state => ({ ...state, deadline: actionTimer?.deadline() ?? null }));
                 break;
             case Request.FINISH:
-                disconnect();
+                preserveStateOnClose = true;
+                disconnect({ preserveState: true });
                 break;
         }
     }

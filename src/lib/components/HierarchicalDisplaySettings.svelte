@@ -116,7 +116,10 @@
     }
   }
 
-  const sections = [
+  const sections: Array<{
+    key: keyof HierarchicalDisplaySettings;
+    icon: string;
+  }> = [
     { key: "agents", icon: "mdi:account-group" },
     { key: "beforeWhisper", icon: "mdi:conversation-outline" },
     { key: "talks", icon: "mdi:conversation" },
@@ -128,7 +131,7 @@
     { key: "attackVotes", icon: "mdi:vote" },
     { key: "attack", icon: "mdi:sword" },
     { key: "result", icon: "mdi:trophy" },
-  ] as const;
+  ];
 </script>
 
 <div class="space-y-2">

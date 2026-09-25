@@ -11,6 +11,7 @@ export interface Packet {
 export enum Request {
     NAME = "NAME",
     TALK = "TALK",
+    TALK_BROADCAST = "TALK_BROADCAST",
     WHISPER = "WHISPER",
     VOTE = "VOTE",
     DIVINE = "DIVINE",

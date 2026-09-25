@@ -38,17 +38,31 @@
     remain !== null ? Math.floor((remain % 60000) / 1000) : 0,
   );
 
+  const isInputRequiredRequest = $derived(
+    request !== null &&
+      [
+        Request.TALK,
+        Request.TALK_BROADCAST,
+        Request.WHISPER,
+        Request.VOTE,
+        Request.DIVINE,
+        Request.GUARD,
+        Request.ATTACK,
+      ].includes(request as Request),
+  );
+
   const isTargetSelectionMode = $derived(
-    [Request.VOTE, Request.DIVINE, Request.GUARD, Request.ATTACK].includes(
-      request as Request,
-    ),
+    request !== null &&
+      [Request.VOTE, Request.DIVINE, Request.GUARD, Request.ATTACK].includes(
+        request as Request,
+      ),
   );
 
   function calculateRemainingLength(currentMessage: string): number {
     if (!request || !setting) return 0;
 
     const config =
-      request === Request.TALK
+      request === Request.TALK || request === Request.TALK_BROADCAST
         ? setting.talk.max_length
         : request === Request.WHISPER
           ? setting.whisper.max_length
