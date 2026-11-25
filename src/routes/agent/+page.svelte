@@ -3,6 +3,7 @@
   import { page } from "$app/state";
   import { Role } from "$lib/constants/common";
   import { agentSettings } from "$lib/stores/agent-settings";
+  import { realtimeSettings } from "$lib/stores/realtime-settings";
   import {
     Request,
     type Info,
@@ -20,6 +21,7 @@
   import AgentColumn from "./AgentColumn.svelte";
   import Navbar from "./Navbar.svelte";
   import TalkColumn from "./TalkColumn.svelte";
+  import HlsAudioPlayer from "../realtime/HlsAudioPlayer.svelte";
 
   import { realtimeSocketState } from "$lib/utils/realtime-socket";
   import type { Packet as RealtimePacket } from "$lib/types/realtime";
@@ -260,6 +262,14 @@
 
 <main class="h-screen flex flex-col bg-base-300">
   <Navbar />
+  {#if info?.game_id}
+    <div class="px-4 pt-2">
+      <HlsAudioPlayer
+        url={$realtimeSettings.connection.url}
+        gameId={info.game_id}
+      />
+    </div>
+  {/if}
   {#if info !== null}
     <div class="overflow-y-hidden flex grow overflox-x-auto gap-4 p-4">
       <AgentColumn

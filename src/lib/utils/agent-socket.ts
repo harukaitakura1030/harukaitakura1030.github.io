@@ -1,5 +1,6 @@
 import type { Role } from '$lib/constants/common';
 import { agentSettings } from '$lib/stores/agent-settings';
+import { realtimeSettings } from '$lib/stores/realtime-settings';
 import { Request, type Info, type Judge, type Packet, type Setting, type Talk } from '$lib/types/agent';
 import type { AgentSettings } from '$lib/types/agent-settings';
 import { writable } from 'svelte/store';
@@ -89,8 +90,22 @@ function createAgentSocketState() {
             disconnect();
         }
 
-        update(() => ({ ...createInitialState(), status: "connecting" }));
         const socketUrl = new URL(settings.connection.url);
+        if (socketUrl.protocol !== 'ws:' && socketUrl.protocol !== 'wss:') {
+            throw new Error(`Unsupported agent WebSocket protocol: ${socketUrl.protocol}`);
+        }
+
+        const realtimeProtocol = socketUrl.protocol === 'wss:' ? 'https:' : 'http:';
+        const realtimePath = socketUrl.pathname.replace(/\/ws\/?$/, '').replace(/\/$/, '');
+        realtimeSettings.update(current => ({
+            ...current,
+            connection: {
+                ...current.connection,
+                url: `${realtimeProtocol}//${socketUrl.host}${realtimePath}`,
+            },
+        }));
+
+        update(() => ({ ...createInitialState(), status: "connecting" }));
         if (settings.connection.token) {
             socketUrl.searchParams.set('token', settings.connection.token);
         }
